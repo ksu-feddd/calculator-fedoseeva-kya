@@ -21,7 +21,7 @@ int factor() {
     if (*expr == '(') {
         expr++;
         int result = expression();
-        expr++; // Пропускаем ')'
+        expr++;
         return result;
     }
     return number();
