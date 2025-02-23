@@ -1,62 +1,27 @@
-#include <stdio.h>
-#include <stdlib.h>
+Калькулятор
 
-char *expr;
+Программа представляет собой калькулятор для выражений, содержащий поддержку операторов `+`, `-`, `*`, `/`, `(` и `)`. 
 
-int number();
-int factor();
-int term();
-int expression();
+Шаги по запуску программы:
 
-int number() {
-    int result = 0;
-    while (*expr >= '0' && *expr <= '9') {
-        result = result * 10 + (*expr - '0');
-        expr++;
-    }
-    return result;
-}
+1. Скопируйте код программы в текстовый редактор.
+2. Сохраните файл с расширением ".c" (например, "main.c").
+3. Откройте командную строку или терминал.
+4. Перейдите в каталог, где находится файл "main.c".
+5. Скомпилируйте программу с помощью команды:
+   gcc -o main main.c
 
-int factor() {
-    if (*expr == '(') {
-        expr++;
-        int result = expression();
-        expr++;
-        return result;
-    }
-    return number();
-}
+Использование программы:
+1.Введите математическое выражение в инфиксной форме, используя стандартные операторы:
 
-int term() {
-    int result = factor();
-    while (*expr == '*' || *expr == '/') {
-        char op = *expr;
-        expr++;
-        int next = factor();
-        if (op == '*') result *= next;
-        else result /= next;
-    }
-    return result;
-}
+- Сложение (+)
 
-int expression() {
-    int result = term();
-    while (*expr == '+' || *expr == '-') {
-        char op = *expr;
-        expr++;
-        int next = term();
-        if (op == '+') result += next;
-        else result -= next;
-    }
-    return result;
-}
+- Вычитание (-)
 
-int main() {
-    char buffer[1024];
-    fread(buffer, 1, sizeof(buffer) - 1, stdin);
-    buffer[sizeof(buffer) - 1] = '\0';
-    expr = buffer;
-    
-    printf("%d\n", expression());
-    return 0;
-}
+- Умножение (*)
+
+- Деление (/)
+
+- Круглые скобки (( и ))
+
+2.Нажмите Enter, чтобы получить результат.
