@@ -2,55 +2,73 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "calculator.h"
 
-#define MAX_INPUT 1024  // 1 КиБ
+#define MAX_INPUT 1024       // 1 КиБ
+#define RESULT_RANGE 2e9     // Диапазон результата: [-2 × 10^9, +2 × 10^9]
 
-// Проверка разрешённых символов
+// Проверка разрешённых символов [0-9()*+\/\s-]
 static int is_allowed_char(char c, int is_float) {
     int base_allowed = (c >= '0' && c <= '9') || c == '(' || c == ')' || c == '*' ||
                        c == '+' || c == '/' || c == '-' || isspace(c);
     if (is_float) {
-        return base_allowed || c == '.';  // Разрешаем точку в float-режиме
+        return base_allowed || c == '.'; // Только точка для float
     }
     return base_allowed;
 }
 
-// Проверка на наличие унарного минуса перед числами
+// Проверка на унарный минус (запрет чисел вида -3)
 static int has_negative_numbers(const char *input, int is_float) {
     int i = 0;
-    int after_number = 0;  // Флаг: был ли предыдущий символ числом
+    int after_number = 0;
 
     while (input[i]) {
         if (isspace(input[i])) {
             i++;
             continue;
         }
-
         if (input[i] == '-') {
-            // Если '-' в начале строки или после пробела, но перед числом
             if (i == 0 || (isspace(input[i - 1]) && !after_number)) {
-                return 1;  // Унарный минус в начале выражения
+                return 1; // Унарный минус перед числом
             }
-            // Сбрасываем флаг после оператора
             after_number = 0;
         } else if (isdigit(input[i])) {
-            after_number = 1;  // Отмечаем, что встретили число
+            after_number = 1;
         } else if (input[i] == '.' && is_float) {
-            after_number = 1;  // Точка в float-режиме считается частью числа
+            after_number = 1;
         } else {
-            after_number = 0;  // Любой другой символ (кроме цифр и точки) сбрасывает флаг
+            after_number = 0;
         }
         i++;
     }
     return 0;
 }
 
-// Простая проверка корректности выражения и вычисление
+// Проверка неотрицательности входных чисел
+static int check_input_non_negative(double value) {
+    if (value < 0) {
+        fprintf(stderr, "Число вне диапазона [0, ∞]\n");
+        return 1;
+    }
+    return 0;
+}
+
+// Проверка диапазона результата [-2 × 10^9, +2 × 10^9]
+static int check_result_range(double value) {
+    if (value < -RESULT_RANGE || value > RESULT_RANGE) {
+        fprintf(stderr, "Результат вне диапазона [-2e9, +2e9]\n");
+        return 1;
+    }
+    return 0;
+}
+
+// Простая проверка корректности и вычисление
 static int parse_and_calculate(const char *input, int is_float, char *result, size_t result_size) {
-    unsigned int a_int, b_int;  // Входные числа неотрицательные
-    double a_float, b_float;
+    unsigned int a_int, b_int; // Неотрицательные числа для int-режима
+    double a_float, b_float;   // Неотрицательные числа для float-режима
     char op;
+    double intermediate;
 
     // Проверка символов
     for (const char *p = input; *p; p++) {
@@ -60,9 +78,9 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
         }
     }
 
-    // Проверка на унарный минус
+    // Проверка унарного минуса
     if (has_negative_numbers(input, is_float)) {
-        fprintf(stderr, "Отрицательные числа во входных данных не поддерживаются\n");
+        fprintf(stderr, "Унарный минус не поддерживается\n");
         return 1;
     }
 
@@ -71,22 +89,33 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
             fprintf(stderr, "Некорректное выражение\n");
             return 1;
         }
+        // Проверка неотрицательности входных чисел
+        if (check_input_non_negative(a_float) || check_input_non_negative(b_float)) return 1;
+
         switch (op) {
             case '+':
-                snprintf(result, result_size, "%.4f", add_float(a_float, b_float));
+                intermediate = a_float + b_float;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             case '-':
-                snprintf(result, result_size, "%.4f", a_float - b_float);  // Отрицательный результат допустим
+                intermediate = a_float - b_float;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             case '*':
-                snprintf(result, result_size, "%.4f", a_float * b_float);
+                intermediate = a_float * b_float;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             case '/':
                 if (b_float < 1e-10) {
                     fprintf(stderr, "Деление на слишком малое число\n");
                     return 1;
                 }
-                snprintf(result, result_size, "%.4f", a_float / b_float);
+                intermediate = a_float / b_float;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             default:
                 fprintf(stderr, "Некорректная операция\n");
@@ -97,22 +126,33 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
             fprintf(stderr, "Некорректное выражение\n");
             return 1;
         }
+        // Неотрицательность уже обеспечена %u, но проверим для единообразия
+        if (check_input_non_negative(a_int) || check_input_non_negative(b_int)) return 1;
+
         switch (op) {
             case '+':
-                snprintf(result, result_size, "%u", add_int(a_int, b_int));
+                intermediate = (double)a_int + (double)b_int;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             case '-':
-                snprintf(result, result_size, "%d", (int)a_int - (int)b_int);  // Отрицательный результат допустим
+                intermediate = (double)a_int - (double)b_int;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             case '*':
-                snprintf(result, result_size, "%u", a_int * b_int);
+                intermediate = (double)a_int * (double)b_int;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             case '/':
                 if (b_int == 0) {
                     fprintf(stderr, "Деление на ноль\n");
                     return 1;
                 }
-                snprintf(result, result_size, "%u", a_int / b_int);
+                intermediate = (double)a_int / (double)b_int;
+                if (check_result_range(intermediate)) return 1;
+                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             default:
                 fprintf(stderr, "Некорректная операция\n");
