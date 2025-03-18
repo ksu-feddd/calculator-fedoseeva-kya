@@ -63,12 +63,12 @@ static int check_result_range(double value) {
     return 0;
 }
 
-// Простая проверка корректности и вычисление
+// Простая проверка корректности и вычисление с поддержкой одной пары скобок
 static int parse_and_calculate(const char *input, int is_float, char *result, size_t result_size) {
-    unsigned int a_int, b_int; // Неотрицательные числа для int-режима
-    double a_float, b_float;   // Неотрицательные числа для float-режима
-    char op;
-    double intermediate;
+    unsigned int a_int, b_int, c_int; // Для int-режима
+    double a_float, b_float, c_float; // Для float-режима
+    char op1, op2;                    // Первый оператор (в скобках) и второй (снаружи)
+    double intermediate, final_result;
 
     // Проверка символов
     for (const char *p = input; *p; p++) {
@@ -85,28 +85,42 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
     }
 
     if (is_float) {
-        if (sscanf(input, "%lf %c %lf", &a_float, &op, &b_float) != 3) {
-            fprintf(stderr, "Некорректное выражение\n");
+        // Проверяем формат: (число оператор число) оператор число
+        if (input[0] == '(') {
+            if (sscanf(input, "(%lf %c %lf) %c %lf", &a_float, &op1, &b_float, &op2, &c_float) != 5) {
+                // Пробуем простой формат: число оператор число
+                if (sscanf(input, "%lf %c %lf", &a_float, &op1, &b_float) != 3) {
+                    fprintf(stderr, "Некорректное выражение\n");
+                    return 1;
+                }
+                c_float = 0; // Нет внешнего числа
+                op2 = '\0';  // Нет внешней операции
+            }
+        } else {
+            if (sscanf(input, "%lf %c %lf", &a_float, &op1, &b_float) != 3) {
+                fprintf(stderr, "Некорректное выражение\n");
+                return 1;
+            }
+            c_float = 0;
+            op2 = '\0';
+        }
+
+        // Проверка неотрицательности входных чисел
+        if (check_input_non_negative(a_float) || check_input_non_negative(b_float) || 
+            (op2 != '\0' && check_input_non_negative(c_float))) {
             return 1;
         }
-        // Проверка неотрицательности входных чисел
-        if (check_input_non_negative(a_float) || check_input_non_negative(b_float)) return 1;
 
-        switch (op) {
+        // Вычисление выражения в скобках
+        switch (op1) {
             case '+':
                 intermediate = a_float + b_float;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             case '-':
                 intermediate = a_float - b_float;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             case '*':
                 intermediate = a_float * b_float;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             case '/':
                 if (b_float < 1e-10) {
@@ -114,36 +128,79 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                     return 1;
                 }
                 intermediate = a_float / b_float;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%.4f", intermediate);
                 break;
             default:
                 fprintf(stderr, "Некорректная операция\n");
                 return 1;
         }
+        if (check_result_range(intermediate)) return 1;
+
+        // Вычисление внешней операции, если есть
+        if (op2 != '\0') {
+            switch (op2) {
+                case '+':
+                    final_result = intermediate + c_float;
+                    break;
+                case '-':
+                    final_result = intermediate - c_float;
+                    break;
+                case '*':
+                    final_result = intermediate * c_float;
+                    break;
+                case '/':
+                    if (c_float < 1e-10) {
+                        fprintf(stderr, "Деление на слишком малое число\n");
+                        return 1;
+                    }
+                    final_result = intermediate / c_float;
+                    break;
+                default:
+                    fprintf(stderr, "Некорректная операция\n");
+                    return 1;
+            }
+            if (check_result_range(final_result)) return 1;
+        } else {
+            final_result = intermediate;
+        }
+
+        snprintf(result, result_size, "%.4f", final_result);
     } else {
-        if (sscanf(input, "%u %c %u", &a_int, &op, &b_int) != 3) {
-            fprintf(stderr, "Некорректное выражение\n");
+        // Проверяем формат: (число оператор число) оператор число
+        if (input[0] == '(') {
+            if (sscanf(input, "(%u %c %u) %c %u", &a_int, &op1, &b_int, &op2, &c_int) != 5) {
+                // Пробуем простой формат: число оператор число
+                if (sscanf(input, "%u %c %u", &a_int, &op1, &b_int) != 3) {
+                    fprintf(stderr, "Некорректное выражение\n");
+                    return 1;
+                }
+                c_int = 0;
+                op2 = '\0';
+            }
+        } else {
+            if (sscanf(input, "%u %c %u", &a_int, &op1, &b_int) != 3) {
+                fprintf(stderr, "Некорректное выражение\n");
+                return 1;
+            }
+            c_int = 0;
+            op2 = '\0';
+        }
+
+        // Проверка неотрицательности (уже обеспечена %u, но для единообразия)
+        if (check_input_non_negative(a_int) || check_input_non_negative(b_int) || 
+            (op2 != '\0' && check_input_non_negative(c_int))) {
             return 1;
         }
-        // Неотрицательность уже обеспечена %u, но проверим для единообразия
-        if (check_input_non_negative(a_int) || check_input_non_negative(b_int)) return 1;
 
-        switch (op) {
+        // Вычисление выражения в скобках
+        switch (op1) {
             case '+':
                 intermediate = (double)a_int + (double)b_int;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             case '-':
                 intermediate = (double)a_int - (double)b_int;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             case '*':
                 intermediate = (double)a_int * (double)b_int;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             case '/':
                 if (b_int == 0) {
@@ -151,13 +208,42 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                     return 1;
                 }
                 intermediate = (double)a_int / (double)b_int;
-                if (check_result_range(intermediate)) return 1;
-                snprintf(result, result_size, "%d", (int)intermediate);
                 break;
             default:
                 fprintf(stderr, "Некорректная операция\n");
                 return 1;
         }
+        if (check_result_range(intermediate)) return 1;
+
+        // Вычисление внешней операции, если есть
+        if (op2 != '\0') {
+            switch (op2) {
+                case '+':
+                    final_result = intermediate + (double)c_int;
+                    break;
+                case '-':
+                    final_result = intermediate - (double)c_int;
+                    break;
+                case '*':
+                    final_result = intermediate * (double)c_int;
+                    break;
+                case '/':
+                    if (c_int == 0) {
+                        fprintf(stderr, "Деление на ноль\n");
+                        return 1;
+                    }
+                    final_result = intermediate / (double)c_int;
+                    break;
+                default:
+                    fprintf(stderr, "Некорректная операция\n");
+                    return 1;
+            }
+            if (check_result_range(final_result)) return 1;
+        } else {
+            final_result = intermediate;
+        }
+
+        snprintf(result, result_size, "%d", (int)final_result);
     }
     return 0;
 }
