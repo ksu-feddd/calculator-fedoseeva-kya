@@ -1,3 +1,8 @@
+"""
+test_calculator.py - Интеграционные тесты от Ксении Федосеевой
+Проверяет работу калькулятора через stdin/stdout в разных режимах.
+"""
+
 import subprocess
 import unittest
 
@@ -28,20 +33,20 @@ class TestCalculatorIntegration(unittest.TestCase):
         self.assertEqual(returncode, 0)
 
     def test_subtraction_int_negative(self):
-        stdout, stderr, returncode = self.run_calculator("5 - 7")
-        self.assertEqual(stdout, "-2")
+        stdout, stderr, returncode = self.run_calculator("100 - 101")
+        self.assertEqual(stdout, "-1")
         self.assertEqual(stderr, "")
         self.assertEqual(returncode, 0)
 
     def test_multiplication_int(self):
-        stdout, stderr, returncode = self.run_calculator("4 * 3")
-        self.assertEqual(stdout, "12")
+        stdout, stderr, returncode = self.run_calculator("2000000 * 1000")
+        self.assertEqual(stdout, "2000000000")
         self.assertEqual(stderr, "")
         self.assertEqual(returncode, 0)
 
     def test_division_int(self):
-        stdout, stderr, returncode = self.run_calculator("10 / 2")
-        self.assertEqual(stdout, "5")
+        stdout, stderr, returncode = self.run_calculator("2000000000 / 2")
+        self.assertEqual(stdout, "1000000000")
         self.assertEqual(stderr, "")
         self.assertEqual(returncode, 0)
 
@@ -54,7 +59,19 @@ class TestCalculatorIntegration(unittest.TestCase):
     def test_negative_input_int(self):
         stdout, stderr, returncode = self.run_calculator("-5 + 3")
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Отрицательные числа во входных данных не поддерживаются")
+        self.assertEqual(stderr, "Унарный минус не поддерживается")
+        self.assertNotEqual(returncode, 0)
+
+    def test_out_of_range_input_int(self):
+        stdout, stderr, returncode = self.run_calculator("3000000000 + 1")
+        self.assertEqual(stdout, "")
+        self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")  # Результат превышает предел
+        self.assertNotEqual(returncode, 0)
+
+    def test_out_of_range_result_int(self):
+        stdout, stderr, returncode = self.run_calculator("2000000000 + 1000000000")
+        self.assertEqual(stdout, "")
+        self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")
         self.assertNotEqual(returncode, 0)
 
     # Режим с плавающей точкой
@@ -71,33 +88,39 @@ class TestCalculatorIntegration(unittest.TestCase):
         self.assertEqual(returncode, 0)
 
     def test_subtraction_float_negative(self):
-        stdout, stderr, returncode = self.run_calculator("2.5 - 3.7", float_mode=True)
-        self.assertEqual(stdout, "-1.2000")
+        stdout, stderr, returncode = self.run_calculator("100.5 - 101.5", float_mode=True)
+        self.assertEqual(stdout, "-1.0000")
         self.assertEqual(stderr, "")
         self.assertEqual(returncode, 0)
 
     def test_multiplication_float(self):
-        stdout, stderr, returncode = self.run_calculator("2.5 * 3.0", float_mode=True)
-        self.assertEqual(stdout, "7.5000")
+        stdout, stderr, returncode = self.run_calculator("2000000.0 * 1000.0", float_mode=True)
+        self.assertEqual(stdout, "2000000000.0000")
         self.assertEqual(stderr, "")
         self.assertEqual(returncode, 0)
 
     def test_division_float(self):
-        stdout, stderr, returncode = self.run_calculator("10.0 / 4.0", float_mode=True)
-        self.assertEqual(stdout, "2.5000")
+        stdout, stderr, returncode = self.run_calculator("2000000000.0 / 2.0", float_mode=True)
+        self.assertEqual(stdout, "1000000000.0000")
         self.assertEqual(stderr, "")
         self.assertEqual(returncode, 0)
 
-    def test_invalid_chars_float(self):
-        stdout, stderr, returncode = self.run_calculator("2.5 + a", float_mode=True)
+    def test_negative_input_float(self):
+        stdout, stderr, returncode = self.run_calculator("-2.5 + 3", float_mode=True)
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Недопустимый символ")
+        self.assertEqual(stderr, "Унарный минус не поддерживается")
         self.assertNotEqual(returncode, 0)
 
-    def test_negative_input_float(self):
-        stdout, stderr, returncode = self.run_calculator("-2.5 + 3.7", float_mode=True)
+    def test_out_of_range_input_float(self):
+        stdout, stderr, returncode = self.run_calculator("2.5e10 + 1", float_mode=True)
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Отрицательные числа во входных данных не поддерживаются")
+        self.assertEqual(stderr, "Недопустимый символ")  # 'e' не разрешён
+        self.assertNotEqual(returncode, 0)
+
+    def test_out_of_range_result_float(self):
+        stdout, stderr, returncode = self.run_calculator("2000000000.5 + 1", float_mode=True)
+        self.assertEqual(stdout, "")
+        self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")
         self.assertNotEqual(returncode, 0)
 
 if __name__ == "__main__":
