@@ -6,7 +6,7 @@
 #include "calculator.h"
 
 #define MAX_INPUT 1024       // 1 КиБ
-#define RESULT_RANGE 2e9     // Диапазон результата: [-2 × 10^9, +2 × 10^9]
+#define RESULT_RANGE 2e9     // Диапазон результата: [-2 × 10^9, +2 × 10^9] для всех режимов
 
 // Проверка разрешённых символов [0-9()*+\/\s-]
 static int is_allowed_char(char c, int is_float) {
@@ -45,16 +45,27 @@ static int has_negative_numbers(const char *input, int is_float) {
     return 0;
 }
 
-// Проверка неотрицательности входных чисел
-static int check_input_non_negative(double value) {
-    if (value < 0) {
-        fprintf(stderr, "Число вне диапазона [0, ∞]\n");
+// Проверка соответствия скобок
+static int check_parentheses(const char *input) {
+    int open = 0;
+    for (const char *p = input; *p; p++) {
+        if (*p == '(') open++;
+        else if (*p == ')') open--;
+        if (open < 0) return 1; // Закрывающая скобка без открывающей
+    }
+    return open != 0; // True, если скобки не сбалансированы
+}
+
+// Проверка входных чисел в диапазоне [0, 2e9]
+static int check_input_range(double value) {
+    if (value < 0 || value > RESULT_RANGE) {
+        fprintf(stderr, "Число вне диапазона [0, 2e9]\n");
         return 1;
     }
     return 0;
 }
 
-// Проверка диапазона результата [-2 × 10^9, +2 × 10^9]
+// Проверка диапазона результата: [-2e9, +2e9] для всех режимов
 static int check_result_range(double value) {
     if (value < -RESULT_RANGE || value > RESULT_RANGE) {
         fprintf(stderr, "Результат вне диапазона [-2e9, +2e9]\n");
@@ -63,12 +74,11 @@ static int check_result_range(double value) {
     return 0;
 }
 
-// Простая проверка корректности и вычисление с поддержкой одной пары скобок
+// Простая проверка корректности и вычисление с поддержкой цепочки операций
 static int parse_and_calculate(const char *input, int is_float, char *result, size_t result_size) {
-    unsigned int a_int, b_int, c_int; // Для int-режима
-    double a_float, b_float, c_float; // Для float-режима
-    char op1, op2;                    // Первый оператор (в скобках) и второй (снаружи)
-    double intermediate, final_result;
+    double a, b, c, d;                // Используем double для всех чисел
+    char op1, op2, op3;               // Операторы
+    double intermediate1, intermediate2, final_result;
 
     // Проверка символов
     for (const char *p = input; *p; p++) {
@@ -84,165 +94,352 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
         return 1;
     }
 
-    if (is_float) {
-        // Проверяем формат: (число оператор число) оператор число
-        if (input[0] == '(') {
-            if (sscanf(input, "(%lf %c %lf) %c %lf", &a_float, &op1, &b_float, &op2, &c_float) != 5) {
-                // Пробуем простой формат: число оператор число
-                if (sscanf(input, "%lf %c %lf", &a_float, &op1, &b_float) != 3) {
-                    fprintf(stderr, "Некорректное выражение\n");
-                    return 1;
-                }
-                c_float = 0; // Нет внешнего числа
-                op2 = '\0';  // Нет внешней операции
-            }
-        } else {
-            if (sscanf(input, "%lf %c %lf", &a_float, &op1, &b_float) != 3) {
-                fprintf(stderr, "Некорректное выражение\n");
-                return 1;
-            }
-            c_float = 0;
-            op2 = '\0';
-        }
+    // Проверка баланса скобок
+    if (check_parentheses(input)) {
+        fprintf(stderr, "Некорректное выражение\n");
+        return 1;
+    }
 
-        // Проверка неотрицательности входных чисел
-        if (check_input_non_negative(a_float) || check_input_non_negative(b_float) || 
-            (op2 != '\0' && check_input_non_negative(c_float))) {
+    // Парсинг ввода
+    if (sscanf(input, "(%lf %c %lf) %c (%lf %c %lf)", &a, &op1, &b, &op2, &c, &op3, &d) == 7) {
+        // Формат: (a op1 b) op2 (c op3 d), например, "(1000 + 2000) * (10 + 5)"
+        if (check_input_range(a) || check_input_range(b) || check_input_range(c) || check_input_range(d)) {
             return 1;
         }
 
-        // Вычисление выражения в скобках
+        // Вычисление первого выражения в скобках
         switch (op1) {
             case '+':
-                intermediate = a_float + b_float;
+                intermediate1 = a + b;
                 break;
             case '-':
-                intermediate = a_float - b_float;
+                intermediate1 = a - b;
                 break;
             case '*':
-                intermediate = a_float * b_float;
+                intermediate1 = a * b;
                 break;
             case '/':
-                if (b_float < 1e-10) {
+                if (is_float && b < 1e-10) {
                     fprintf(stderr, "Деление на слишком малое число\n");
                     return 1;
-                }
-                intermediate = a_float / b_float;
-                break;
-            default:
-                fprintf(stderr, "Некорректная операция\n");
-                return 1;
-        }
-        if (check_result_range(intermediate)) return 1;
-
-        // Вычисление внешней операции, если есть
-        if (op2 != '\0') {
-            switch (op2) {
-                case '+':
-                    final_result = intermediate + c_float;
-                    break;
-                case '-':
-                    final_result = intermediate - c_float;
-                    break;
-                case '*':
-                    final_result = intermediate * c_float;
-                    break;
-                case '/':
-                    if (c_float < 1e-10) {
-                        fprintf(stderr, "Деление на слишком малое число\n");
-                        return 1;
-                    }
-                    final_result = intermediate / c_float;
-                    break;
-                default:
-                    fprintf(stderr, "Некорректная операция\n");
-                    return 1;
-            }
-            if (check_result_range(final_result)) return 1;
-        } else {
-            final_result = intermediate;
-        }
-
-        snprintf(result, result_size, "%.4f", final_result);
-    } else {
-        // Проверяем формат: (число оператор число) оператор число
-        if (input[0] == '(') {
-            if (sscanf(input, "(%u %c %u) %c %u", &a_int, &op1, &b_int, &op2, &c_int) != 5) {
-                // Пробуем простой формат: число оператор число
-                if (sscanf(input, "%u %c %u", &a_int, &op1, &b_int) != 3) {
-                    fprintf(stderr, "Некорректное выражение\n");
-                    return 1;
-                }
-                c_int = 0;
-                op2 = '\0';
-            }
-        } else {
-            if (sscanf(input, "%u %c %u", &a_int, &op1, &b_int) != 3) {
-                fprintf(stderr, "Некорректное выражение\n");
-                return 1;
-            }
-            c_int = 0;
-            op2 = '\0';
-        }
-
-        // Проверка неотрицательности (уже обеспечена %u, но для единообразия)
-        if (check_input_non_negative(a_int) || check_input_non_negative(b_int) || 
-            (op2 != '\0' && check_input_non_negative(c_int))) {
-            return 1;
-        }
-
-        // Вычисление выражения в скобках
-        switch (op1) {
-            case '+':
-                intermediate = (double)a_int + (double)b_int;
-                break;
-            case '-':
-                intermediate = (double)a_int - (double)b_int;
-                break;
-            case '*':
-                intermediate = (double)a_int * (double)b_int;
-                break;
-            case '/':
-                if (b_int == 0) {
+                } else if (!is_float && b < 1) {
                     fprintf(stderr, "Деление на ноль\n");
                     return 1;
                 }
-                intermediate = (double)a_int / (double)b_int;
+                intermediate1 = a / b;
                 break;
             default:
                 fprintf(stderr, "Некорректная операция\n");
                 return 1;
         }
-        if (check_result_range(intermediate)) return 1;
+        if (check_result_range(intermediate1)) return 1;
 
-        // Вычисление внешней операции, если есть
+        // Вычисление второго выражения в скобках
+        switch (op3) {
+            case '+':
+                intermediate2 = c + d;
+                break;
+            case '-':
+                intermediate2 = c - d;
+                break;
+            case '*':
+                intermediate2 = c * d;
+                break;
+            case '/':
+                if (is_float && d < 1e-10) {
+                    fprintf(stderr, "Деление на слишком малое число\n");
+                    return 1;
+                } else if (!is_float && d < 1) {
+                    fprintf(stderr, "Деление на ноль\n");
+                    return 1;
+                }
+                intermediate2 = c / d;
+                break;
+            default:
+                fprintf(stderr, "Некорректная операция\n");
+                return 1;
+        }
+        if (check_result_range(intermediate2)) return 1;
+
+        // Вычисление между выражениями
+        switch (op2) {
+            case '+':
+                final_result = intermediate1 + intermediate2;
+                break;
+            case '-':
+                final_result = intermediate1 - intermediate2;
+                break;
+            case '*':
+                final_result = intermediate1 * intermediate2;
+                break;
+            case '/':
+                if (is_float && intermediate2 < 1e-10) {
+                    fprintf(stderr, "Деление на слишком малое число\n");
+                    return 1;
+                } else if (!is_float && intermediate2 < 1) {
+                    fprintf(stderr, "Деление на ноль\n");
+                    return 1;
+                }
+                final_result = intermediate1 / intermediate2;
+                break;
+            default:
+                fprintf(stderr, "Некорректная операция\n");
+                return 1;
+        }
+    } else if (sscanf(input, "%lf %c %lf %c (%lf %c %lf)", &a, &op1, &b, &op2, &c, &op3, &d) == 7) {
+        // Формат: a op1 b op2 (c op3 d), например, "5 + 3 * (2 + 3)"
+        if (check_input_range(a) || check_input_range(b) || check_input_range(c) || check_input_range(d)) {
+            return 1;
+        }
+
+        // Вычисление выражения в скобках
+        switch (op3) {
+            case '+':
+                intermediate1 = c + d;
+                break;
+            case '-':
+                intermediate1 = c - d;
+                break;
+            case '*':
+                intermediate1 = c * d;
+                break;
+            case '/':
+                if (is_float && d < 1e-10) {
+                    fprintf(stderr, "Деление на слишком малое число\n");
+                    return 1;
+                } else if (!is_float && d < 1) {
+                    fprintf(stderr, "Деление на ноль\n");
+                    return 1;
+                }
+                intermediate1 = c / d;
+                break;
+            default:
+                fprintf(stderr, "Некорректная операция\n");
+                return 1;
+        }
+        if (check_result_range(intermediate1)) return 1;
+
+        // Вычисление с учётом приоритета
+        if (op2 == '*' || op2 == '/') {
+            if (op2 == '*') {
+                final_result = b * intermediate1;
+            } else {
+                if (is_float && intermediate1 < 1e-10) {
+                    fprintf(stderr, "Деление на слишком малое число\n");
+                    return 1;
+                } else if (!is_float && intermediate1 < 1) {
+                    fprintf(stderr, "Деление на ноль\n");
+                    return 1;
+                }
+                final_result = b / intermediate1;
+            }
+            if (check_result_range(final_result)) return 1;
+
+            if (op1 == '+') final_result = a + final_result;
+            else final_result = a - final_result;
+        } else {
+            if (op1 == '+') {
+                final_result = a + b;
+            } else {
+                final_result = a - b;
+            }
+            if (check_result_range(final_result)) return 1;
+
+            if (op2 == '+') final_result = final_result + intermediate1;
+            else final_result = final_result - intermediate1;
+        }
+    } else if (input[0] == '(') {
+        if (sscanf(input, "(%lf %c %lf) %c %lf %c %lf", &a, &op1, &b, &op2, &c, &op3, &d) == 7) {
+            // Формат: (a op1 b) op2 c op3 d, например, "(5 + 5) * 2 / 5"
+        } else if (sscanf(input, "(%lf %c %lf) %c %lf", &a, &op1, &b, &op2, &c) == 5) {
+            // Формат: (a op1 b) op2 c
+            d = 0;
+            op3 = '\0';
+        } else if (sscanf(input, "(%lf %c %lf)", &a, &op1, &b) == 3) {
+            // Формат: (a op1 b)
+            c = 0;
+            op2 = '\0';
+            d = 0;
+            op3 = '\0';
+        } else {
+            fprintf(stderr, "Некорректное выражение\n");
+            return 1;
+        }
+
+        if (check_input_range(a) || check_input_range(b) || 
+            (op2 != '\0' && check_input_range(c)) || (op3 != '\0' && check_input_range(d))) {
+            return 1;
+        }
+
+        // Вычисление первой операции
+        switch (op1) {
+            case '+':
+                intermediate1 = a + b;
+                break;
+            case '-':
+                intermediate1 = a - b;
+                break;
+            case '*':
+                intermediate1 = a * b;
+                break;
+            case '/':
+                if (is_float && b < 1e-10) {
+                    fprintf(stderr, "Деление на слишком малое число\n");
+                    return 1;
+                } else if (!is_float && b < 1) {
+                    fprintf(stderr, "Деление на ноль\n");
+                    return 1;
+                }
+                intermediate1 = a / b;
+                break;
+            default:
+                fprintf(stderr, "Некорректная операция\n");
+                return 1;
+        }
+        if (check_result_range(intermediate1)) return 1;
+
+        // Вычисление второй операции, если есть
         if (op2 != '\0') {
             switch (op2) {
                 case '+':
-                    final_result = intermediate + (double)c_int;
+                    intermediate1 = intermediate1 + c;
                     break;
                 case '-':
-                    final_result = intermediate - (double)c_int;
+                    intermediate1 = intermediate1 - c;
                     break;
                 case '*':
-                    final_result = intermediate * (double)c_int;
+                    intermediate1 = intermediate1 * c;
                     break;
                 case '/':
-                    if (c_int == 0) {
+                    if (is_float && c < 1e-10) {
+                    fprintf(stderr, "Деление на слишком малое число\n");
+                    return 1;
+                } else if (!is_float && c < 1) {
+                    fprintf(stderr, "Деление на ноль\n");
+                    return 1;
+                }
+                intermediate1 = intermediate1 / c;
+                break;
+            default:
+                fprintf(stderr, "Некорректная операция\n");
+                return 1;
+            }
+            if (check_result_range(intermediate1)) return 1;
+        }
+
+        // Вычисление третьей операции, если есть
+        if (op3 != '\0') {
+            switch (op3) {
+                case '+':
+                    final_result = intermediate1 + d;
+                    break;
+                case '-':
+                    final_result = intermediate1 - d;
+                    break;
+                case '*':
+                    final_result = intermediate1 * d;
+                    break;
+                case '/':
+                    if (is_float && d < 1e-10) {
+                        fprintf(stderr, "Деление на слишком малое число\n");
+                        return 1;
+                    } else if (!is_float && d < 1) {
                         fprintf(stderr, "Деление на ноль\n");
                         return 1;
                     }
-                    final_result = intermediate / (double)c_int;
+                    final_result = intermediate1 / d;
                     break;
                 default:
                     fprintf(stderr, "Некорректная операция\n");
                     return 1;
             }
-            if (check_result_range(final_result)) return 1;
         } else {
-            final_result = intermediate;
+            final_result = intermediate1;
+        }
+    } else {
+        if (sscanf(input, "%lf %c %lf %c %lf", &a, &op1, &b, &op2, &c) == 5) {
+            // Формат: a op1 b op2 c
+            d = 0;
+            op3 = '\0';
+        } else if (sscanf(input, "%lf %c %lf", &a, &op1, &b) == 3) {
+            // Формат: a op1 b
+            c = 0;
+            op2 = '\0';
+            d = 0;
+            op3 = '\0';
+        } else {
+            fprintf(stderr, "Некорректное выражение\n");
+            return 1;
         }
 
+        if (check_input_range(a) || check_input_range(b) || (op2 != '\0' && check_input_range(c))) {
+            return 1;
+        }
+
+        // Вычисление первой операции
+        switch (op1) {
+            case '+':
+                intermediate1 = a + b;
+                break;
+            case '-':
+                intermediate1 = a - b;
+                break;
+            case '*':
+                intermediate1 = a * b;
+                break;
+            case '/':
+                if (is_float && b < 1e-10) {
+                    fprintf(stderr, "Деление на слишком малое число\n");
+                    return 1;
+                } else if (!is_float && b < 1) {
+                    fprintf(stderr, "Деление на ноль\n");
+                    return 1;
+                }
+                intermediate1 = a / b;
+                break;
+            default:
+                fprintf(stderr, "Некорректная операция\n");
+                return 1;
+        }
+        if (check_result_range(intermediate1)) return 1;
+
+        // Вычисление второй операции, если есть
+        if (op2 != '\0') {
+            switch (op2) {
+                case '+':
+                    final_result = intermediate1 + c;
+                    break;
+                case '-':
+                    final_result = intermediate1 - c;
+                    break;
+                case '*':
+                    final_result = intermediate1 * c;
+                    break;
+                case '/':
+                    if (is_float && c < 1e-10) {
+                        fprintf(stderr, "Деление на слишком малое число\n");
+                        return 1;
+                    } else if (!is_float && c < 1) {
+                        fprintf(stderr, "Деление на ноль\n");
+                        return 1;
+                    }
+                    final_result = intermediate1 / c;
+                    break;
+                default:
+                    fprintf(stderr, "Некорректная операция\n");
+                    return 1;
+            }
+        } else {
+            final_result = intermediate1;
+        }
+    }
+
+    if (check_result_range(final_result)) return 1;
+
+    // Форматирование результата
+    if (is_float) {
+        snprintf(result, result_size, "%.4f", final_result);
+    } else {
         snprintf(result, result_size, "%d", (int)final_result);
     }
     return 0;
