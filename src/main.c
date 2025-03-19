@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,7 +60,7 @@ static int check_parentheses(const char *input) {
 // Проверка входных чисел в диапазоне [0, 2e9]
 static int check_input_range(double value) {
     if (value < 0 || value > RESULT_RANGE) {
-        fprintf(stderr, "Число вне диапазона [0, 2e9]\n");
+        fprintf(stderr, "Ошибка: некорректное выражение\n");
         return 1;
     }
     return 0;
@@ -68,7 +69,7 @@ static int check_input_range(double value) {
 // Проверка диапазона результата: [-2e9, +2e9] для всех режимов
 static int check_result_range(double value) {
     if (value < -RESULT_RANGE || value > RESULT_RANGE) {
-        fprintf(stderr, "Результат вне диапазона [-2e9, +2e9]\n");
+        fprintf(stderr, "Ошибка: некорректное выражение\n");
         return 1;
     }
     return 0;
@@ -83,20 +84,20 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
     // Проверка символов
     for (const char *p = input; *p; p++) {
         if (!is_allowed_char(*p, is_float)) {
-            fprintf(stderr, "Недопустимый символ\n");
+            fprintf(stderr, "Ошибка: некорректное выражение\n");
             return 1;
         }
     }
 
     // Проверка унарного минуса
     if (has_negative_numbers(input, is_float)) {
-        fprintf(stderr, "Унарный минус не поддерживается\n");
+        fprintf(stderr, "Ошибка: некорректное выражение\n");
         return 1;
     }
 
     // Проверка баланса скобок
     if (check_parentheses(input)) {
-        fprintf(stderr, "Некорректное выражение\n");
+        fprintf(stderr, "Ошибка: некорректное выражение\n");
         return 1;
     }
 
@@ -129,7 +130,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                 intermediate1 = a / b;
                 break;
             default:
-                fprintf(stderr, "Некорректная операция\n");
+                fprintf(stderr, "Ошибка: некорректное выражение\n");
                 return 1;
         }
         if (check_result_range(intermediate1)) return 1;
@@ -156,7 +157,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                 intermediate2 = c / d;
                 break;
             default:
-                fprintf(stderr, "Некорректная операция\n");
+                fprintf(stderr, "Ошибка: некорректное выражение\n");
                 return 1;
         }
         if (check_result_range(intermediate2)) return 1;
@@ -183,7 +184,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                 final_result = intermediate1 / intermediate2;
                 break;
             default:
-                fprintf(stderr, "Некорректная операция\n");
+                fprintf(stderr, "Ошибка: некорректное выражение\n");
                 return 1;
         }
     } else if (sscanf(input, "%lf %c %lf %c (%lf %c %lf)", &a, &op1, &b, &op2, &c, &op3, &d) == 7) {
@@ -214,7 +215,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                 intermediate1 = c / d;
                 break;
             default:
-                fprintf(stderr, "Некорректная операция\n");
+                fprintf(stderr, "Ошибка: некорректное выражение\n");
                 return 1;
         }
         if (check_result_range(intermediate1)) return 1;
@@ -262,7 +263,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
             d = 0;
             op3 = '\0';
         } else {
-            fprintf(stderr, "Некорректное выражение\n");
+            fprintf(stderr, "Ошибка: некорректное выражение\n");
             return 1;
         }
 
@@ -293,7 +294,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                 intermediate1 = a / b;
                 break;
             default:
-                fprintf(stderr, "Некорректная операция\n");
+                fprintf(stderr, "Ошибка: некорректное выражение\n");
                 return 1;
         }
         if (check_result_range(intermediate1)) return 1;
@@ -321,7 +322,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                 intermediate1 = intermediate1 / c;
                 break;
             default:
-                fprintf(stderr, "Некорректная операция\n");
+                fprintf(stderr, "Ошибка: некорректное выражение\n");
                 return 1;
             }
             if (check_result_range(intermediate1)) return 1;
@@ -350,7 +351,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                     final_result = intermediate1 / d;
                     break;
                 default:
-                    fprintf(stderr, "Некорректная операция\n");
+                    fprintf(stderr, "Ошибка: некорректное выражение\n");
                     return 1;
             }
         } else {
@@ -368,7 +369,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
             d = 0;
             op3 = '\0';
         } else {
-            fprintf(stderr, "Некорректное выражение\n");
+            fprintf(stderr, "Ошибка: некорректное выражение\n");
             return 1;
         }
 
@@ -398,7 +399,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                 intermediate1 = a / b;
                 break;
             default:
-                fprintf(stderr, "Некорректная операция\n");
+                fprintf(stderr, "Ошибка: некорректное выражение\n");
                 return 1;
         }
         if (check_result_range(intermediate1)) return 1;
@@ -426,7 +427,7 @@ static int parse_and_calculate(const char *input, int is_float, char *result, si
                     final_result = intermediate1 / c;
                     break;
                 default:
-                    fprintf(stderr, "Некорректная операция\n");
+                    fprintf(stderr, "Ошибка: некорректное выражение\n");
                     return 1;
             }
         } else {
@@ -453,7 +454,7 @@ int main(int argc, char *argv[]) {
 
     char input[MAX_INPUT];
     if (fgets(input, sizeof(input), stdin) == NULL) {
-        fprintf(stderr, "Ошибка ввода или EOF\n");
+        fprintf(stderr, "Ошибка: некорректное выражение\n");
         return 1;
     }
 
