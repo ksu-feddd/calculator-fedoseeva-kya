@@ -65,13 +65,38 @@ class TestCalculatorIntegration(unittest.TestCase):
     def test_out_of_range_input_int(self):
         stdout, stderr, returncode = self.run_calculator("3000000000 + 1")
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")  # Результат превышает предел
+        self.assertEqual(stderr, "Число вне диапазона [0, 2e9]")
         self.assertNotEqual(returncode, 0)
 
     def test_out_of_range_result_int(self):
         stdout, stderr, returncode = self.run_calculator("2000000000 + 1000000000")
         self.assertEqual(stdout, "")
         self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")
+        self.assertNotEqual(returncode, 0)
+
+    # Добавленные тесты для целочисленного режима с скобками
+    def test_parentheses_int(self):
+        stdout, stderr, returncode = self.run_calculator("(5 + 5) * 2")
+        self.assertEqual(stdout, "20")
+        self.assertEqual(stderr, "")
+        self.assertEqual(returncode, 0)
+
+    def test_mixed_operations_int(self):
+        stdout, stderr, returncode = self.run_calculator("5 + 3 * (2 + 3)")
+        self.assertEqual(stdout, "20")
+        self.assertEqual(stderr, "")
+        self.assertEqual(returncode, 0)
+
+    def test_large_parentheses_int(self):
+        stdout, stderr, returncode = self.run_calculator("(1000 + 2000) * (10 + 5)")
+        self.assertEqual(stdout, "45000")
+        self.assertEqual(stderr, "")
+        self.assertEqual(returncode, 0)
+
+    def test_unmatched_parentheses_int(self):
+        stdout, stderr, returncode = self.run_calculator("(10 + 5")
+        self.assertEqual(stdout, "")
+        self.assertEqual(stderr, "Некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     # Режим с плавающей точкой
@@ -112,15 +137,40 @@ class TestCalculatorIntegration(unittest.TestCase):
         self.assertNotEqual(returncode, 0)
 
     def test_out_of_range_input_float(self):
-        stdout, stderr, returncode = self.run_calculator("2.5e10 + 1", float_mode=True)
+        stdout, stderr, returncode = self.run_calculator("3000000000.0 + 1.0", float_mode=True)
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Недопустимый символ")  # 'e' не разрешён
+        self.assertEqual(stderr, "Число вне диапазона [0, 2e9]")
         self.assertNotEqual(returncode, 0)
 
     def test_out_of_range_result_float(self):
-        stdout, stderr, returncode = self.run_calculator("2000000000.5 + 1", float_mode=True)
+        stdout, stderr, returncode = self.run_calculator("2000000000.0 + 1000000000.0", float_mode=True)
         self.assertEqual(stdout, "")
         self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")
+        self.assertNotEqual(returncode, 0)
+
+    # Добавленные тесты для float-режима с скобками
+    def test_parentheses_float(self):
+        stdout, stderr, returncode = self.run_calculator("(5.0 + 5.0) * 2.0 / 5.0", float_mode=True)
+        self.assertEqual(stdout, "4.0000")
+        self.assertEqual(stderr, "")
+        self.assertEqual(returncode, 0)
+
+    def test_mixed_operations_float(self):
+        stdout, stderr, returncode = self.run_calculator("5.0 + 3.0 * (2.0 + 3.0)", float_mode=True)
+        self.assertEqual(stdout, "20.0000")
+        self.assertEqual(stderr, "")
+        self.assertEqual(returncode, 0)
+
+    def test_large_parentheses_float(self):
+        stdout, stderr, returncode = self.run_calculator("(1000.0 + 2000.0) * (10.0 + 5.0)", float_mode=True)
+        self.assertEqual(stdout, "45000.0000")
+        self.assertEqual(stderr, "")
+        self.assertEqual(returncode, 0)
+
+    def test_unmatched_parentheses_float(self):
+        stdout, stderr, returncode = self.run_calculator("(10.0 + 5.0", float_mode=True)
+        self.assertEqual(stdout, "")
+        self.assertEqual(stderr, "Некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
 if __name__ == "__main__":
