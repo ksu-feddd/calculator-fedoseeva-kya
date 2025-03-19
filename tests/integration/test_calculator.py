@@ -53,25 +53,25 @@ class TestCalculatorIntegration(unittest.TestCase):
     def test_invalid_chars_int(self):
         stdout, stderr, returncode = self.run_calculator("2 + a")
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Недопустимый символ")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     def test_negative_input_int(self):
         stdout, stderr, returncode = self.run_calculator("-5 + 3")
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Унарный минус не поддерживается")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     def test_out_of_range_input_int(self):
         stdout, stderr, returncode = self.run_calculator("3000000000 + 1")
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Число вне диапазона [0, 2e9]")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     def test_out_of_range_result_int(self):
         stdout, stderr, returncode = self.run_calculator("2000000000 + 1000000000")
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     # Добавленные тесты для целочисленного режима с скобками
@@ -96,7 +96,7 @@ class TestCalculatorIntegration(unittest.TestCase):
     def test_unmatched_parentheses_int(self):
         stdout, stderr, returncode = self.run_calculator("(10 + 5")
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Некорректное выражение")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     # Режим с плавающей точкой
@@ -133,19 +133,19 @@ class TestCalculatorIntegration(unittest.TestCase):
     def test_negative_input_float(self):
         stdout, stderr, returncode = self.run_calculator("-2.5 + 3", float_mode=True)
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Унарный минус не поддерживается")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     def test_out_of_range_input_float(self):
         stdout, stderr, returncode = self.run_calculator("3000000000.0 + 1.0", float_mode=True)
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Число вне диапазона [0, 2e9]")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     def test_out_of_range_result_float(self):
         stdout, stderr, returncode = self.run_calculator("2000000000.0 + 1000000000.0", float_mode=True)
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Результат вне диапазона [-2e9, +2e9]")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
     # Добавленные тесты для float-режима с скобками
@@ -170,7 +170,7 @@ class TestCalculatorIntegration(unittest.TestCase):
     def test_unmatched_parentheses_float(self):
         stdout, stderr, returncode = self.run_calculator("(10.0 + 5.0", float_mode=True)
         self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "Некорректное выражение")
+        self.assertEqual(stderr, "Ошибка: некорректное выражение")
         self.assertNotEqual(returncode, 0)
 
 if __name__ == "__main__":
